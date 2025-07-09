@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List
 
 from evalplus.provider.utility import EOS
+from evalplus.config import MAX_NEW_TOKENS
 
 
 class DecoderBase(ABC):
@@ -10,7 +11,7 @@ class DecoderBase(ABC):
         name: str,
         batch_size: int = 1,
         temperature: float = 0.8,
-        max_new_tokens: int = 768,
+        max_new_tokens: int = MAX_NEW_TOKENS,
         dtype: str = "bfloat16",  # default
         trust_remote_code: bool = False,
         instruction_prefix: str = None,

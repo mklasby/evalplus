@@ -2,6 +2,7 @@
 
 import os
 import pathlib
+import re
 from typing import Dict, Generator, List, Optional, Set, Tuple
 
 import tree_sitter_python
@@ -26,8 +27,18 @@ RETURN_TYPE = "return_statement"
 EXPRESSION_TYPE = "expression_statement"
 ASSIGNMENT_TYPE = "assignment"
 
+def strip_think_tags(text: str) -> str:
+    """
+    Strips any text enclosed by '<think>' and '</think>' tags, including the tags.
+    """
+    # The re.DOTALL flag ensures that '.' matches newline characters,
+    # handling multi-line <think> blocks.
+    return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
 
-def code_extract(text: str) -> str:
+
+def code_extract(text: str, strip_think: bool = False, verbose: bool = False) -> str:
+    if strip_think:
+        text = strip_think_tags(text)
     lines = text.split("\n")
     longest_line_pair = (0, 0)
     longest_so_far = 0
@@ -35,7 +46,7 @@ def code_extract(text: str) -> str:
     for i in range(len(lines)):
         for j in range(i + 1, len(lines)):
             current_lines = "\n".join(lines[i : j + 1])
-            if syntax_check(current_lines):
+            if syntax_check(current_lines, verbose=verbose):
                 current_length = sum(1 for line in lines[i : j + 1] if line.strip())
                 if current_length > longest_so_far:
                     longest_so_far = current_length

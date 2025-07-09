@@ -26,6 +26,7 @@ def make_model(
     # gptqmodel only
     gptqmodel_backend: str = 'auto',
     gguf_file: str = None,
+    enable_thinking: bool = False,
 ) -> DecoderBase:
     if backend == "vllm":
         from evalplus.provider.vllm import VllmDecoder
@@ -73,6 +74,7 @@ def make_model(
             base_url=base_url,
             instruction_prefix=instruction_prefix,
             response_prefix=response_prefix,
+            enable_thinking=enable_thinking,
         )
     elif backend == "anthropic":
         from evalplus.provider.anthropic import AnthropicDecoder

@@ -9,9 +9,10 @@ from evalplus.provider.utility import concurrent_call
 
 
 class OpenAIChatDecoder(DecoderBase):
-    def __init__(self, name: str, base_url=None, **kwargs) -> None:
+    def __init__(self, name: str, base_url=None, enable_thinking: bool = False, **kwargs) -> None:
         super().__init__(name, **kwargs)
         self.base_url = base_url
+        self.enable_thinking = enable_thinking
 
     def codegen(
         self, prompt: str, do_sample: bool = True, num_samples: int = 200
@@ -31,7 +32,10 @@ class OpenAIChatDecoder(DecoderBase):
         client = openai.OpenAI(
             api_key=os.getenv("OPENAI_API_KEY", "none"), base_url=self.base_url
         )
-
+        if self.enable_thinking:
+            kwargs = {"enable_thinking": self.enable_thinking}
+        else:
+            kwargs = {}
         ret = openai_request.make_auto_request(
             client,
             message=prompt,
@@ -39,6 +43,7 @@ class OpenAIChatDecoder(DecoderBase):
             max_tokens=self.max_new_tokens,
             temperature=self.temperature,
             n=batch_size,
+            **kwargs,
         )
 
         outputs = []

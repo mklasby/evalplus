@@ -14,3 +14,6 @@ PERF_EVAL_TIMEOUT_SECOND = 45
 ### Curation Phase
 PERF_CURATE_TIMEOUT_SECOND = 20
 PREF_CURATE_MIN_INSTRUCTION = 10000
+
+# Max new tokens default for run_codegen fn
+MAX_NEW_TOKENS = 2048 # Set to None to use the max model length

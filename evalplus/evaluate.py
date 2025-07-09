@@ -205,6 +205,8 @@ def evaluate(
             n_samples = 0
             eval_results = defaultdict(list)  # task_id ->
             remainings = set()
+            future_to_identifier = {}  # Track future -> identifier mapping
+            force_shutdown = threading.Event()  # Event to signal forced shutdown
 
             print("Reading samples...")
             for sample in tqdm(load_solutions(samples)):
@@ -232,7 +234,9 @@ def evaluate(
                     min_time_limit,
                     gt_time_limit_factor,
                 )
-                futures.append(executor.submit(check_correctness, *args))
+                future = executor.submit(check_correctness, *args)
+                futures.append(future)
+                future_to_identifier[future] = (sample["_identifier"], task_id, completion_id[task_id], solution)
                 completion_id[task_id] += 1
                 n_samples += 1
 
@@ -240,21 +244,74 @@ def evaluate(
             assert len(completion_id) == len(problems), "Missing problems in samples"
 
             def stucking_checker():
-                while remainings:
+                stuck_count = 0
+                while remainings and not force_shutdown.is_set():
                     last_size = len(remainings)
                     time.sleep(20)
                     if last_size != len(remainings) or len(remainings) == 0:
+                        stuck_count = 0  # Reset counter if progress made
                         continue
                     # Potential stucking
+                    stuck_count += 1
                     warn("No samples had finished testing in the last 20s")
                     warn(f"{len(remainings)} samples to be tested: {remainings}")
+                    
+                    # After 5 minutes of no progress, force termination
+                    if stuck_count >= 15:  # 15 * 20s = 5 minutes
+                        warn("Forcing termination due to stuck samples after 5 minutes")
+                        # Cancel remaining futures and mark as failed
+                        for future in futures:
+                            if not future.done():
+                                future.cancel()
+                        # Create failure results for remaining samples
+                        for identifier in list(remainings):
+                            for future, (ident, task_id, comp_id, solution) in future_to_identifier.items():
+                                if ident == identifier:
+                                    failure_result = {
+                                        "completion_id": comp_id,
+                                        "task_id": task_id,
+                                        "_identifier": identifier,
+                                        "solution": solution,
+                                        "base": ("fail", []),
+                                    }
+                                    if not base_only:
+                                        failure_result["plus"] = ("fail", [])
+                                    eval_results[task_id].append(failure_result)
+                                    break
+                            remainings.discard(identifier)
+                        force_shutdown.set()
+                        break
 
             threading.Thread(target=stucking_checker).start()
 
             for future in tqdm(as_completed(futures), total=n_samples):
-                result = future.result()
-                remainings.remove(result["_identifier"])
-                eval_results[result["task_id"]].append(result)
+                if force_shutdown.is_set():
+                    break
+                    
+                try:
+                    result = future.result(timeout=300)  # 5 minute timeout per future
+                    remainings.remove(result["_identifier"])
+                    eval_results[result["task_id"]].append(result)
+                except Exception as e:
+                    # Handle timeout, cancellation, or other exceptions
+                    if future in future_to_identifier:
+                        identifier, task_id, comp_id, solution = future_to_identifier[future]
+                        warn(f"Future for {identifier} failed or timed out: {e}")
+                        
+                        # Create a failure result that matches check_correctness output format
+                        failure_result = {
+                            "completion_id": comp_id,
+                            "task_id": task_id,
+                            "_identifier": identifier,
+                            "solution": solution,
+                            "base": ("fail", []),  # Mark as failed with empty details
+                        }
+                        
+                        if not base_only:
+                            failure_result["plus"] = ("fail", [])  # Mark plus tests as failed too
+                        
+                        remainings.discard(identifier)  # Use discard to avoid KeyError if already removed
+                        eval_results[task_id].append(failure_result)
 
         # sort the results for each problem by completion_id
         for task_id, task_results in eval_results.items():

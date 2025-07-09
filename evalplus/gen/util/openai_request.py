@@ -11,6 +11,7 @@ def make_request(
     max_tokens: int = 512,
     temperature: float = 1,
     n: int = 1,
+    enable_thinking: bool = False,
     **kwargs
 ) -> ChatCompletion:
     kwargs["top_p"] = 0.95
@@ -20,6 +21,8 @@ def make_request(
         kwargs.pop("max_completion_tokens")
         temperature = 1.0  # o1 models do not support temperature
 
+    if not enable_thinking:
+        message = message + " /no_think"
     return client.chat.completions.create(
         model=model,
         messages=[
