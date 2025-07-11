@@ -1,12 +1,14 @@
 import json
 import os
 from typing import Dict, List, Optional
+import re
 
 from evalplus.data import get_evalperf_data, get_human_eval_plus, get_mbpp_plus
 from evalplus.provider import DecoderBase, make_model
 from evalplus.sanitize import sanitize
 from evalplus.utils import progress
 
+DEGENERATE_OUTPUT_PATIENCE = 3 # Number of consecutive degenerate outputs to tolerate before giving up
 
 def codegen(
     target_path: str,
@@ -17,6 +19,7 @@ def codegen(
     id_range=None,
     resume=True,
 ):
+    degenerate_output_patience = DEGENERATE_OUTPUT_PATIENCE
     task2nexist = {}
     if resume and target_path.endswith(".jsonl") and os.path.isfile(target_path):
         with open(target_path, "r") as f:
@@ -73,6 +76,20 @@ def codegen(
                     num_samples=n_samples - sidx,
                 )
                 assert outputs, "No outputs from model!"
+                if outputs[0].strip() == "" or re.search(r"(.+?)\1{100,}", outputs[0], re.DOTALL) is not None:
+                    degenerate_output_patience -= 1
+                    print("WARNING: Degenerate output received from model! Remaining patience:", degenerate_output_patience)
+                    if degenerate_output_patience == 0:
+                        import pathlib
+                        empty_outputs_file = pathlib.Path(target_path).parent / "degenerate_outputs.txt"
+                        with open(empty_outputs_file, "a") as f:
+                            f.write("Found at least 3 consecutive degenerate outputs. Terminating")
+                        raise RuntimeError(
+                            f"Found at least 3 consecutive degenerate outputs for task {task_id}. "
+                            "Terminating codegen."
+                        )
+                else:
+                    degenerate_output_patience = DEGENERATE_OUTPUT_PATIENCE
                 for impl in outputs:
                     solution = prompt + impl if model.is_direct_completion() else impl
                     sanitized_solution = sanitize(
