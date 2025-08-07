@@ -8,7 +8,7 @@ from evalplus.provider import DecoderBase, make_model
 from evalplus.sanitize import sanitize
 from evalplus.utils import progress
 
-DEGENERATE_OUTPUT_PATIENCE = 3 # Number of consecutive degenerate outputs to tolerate before giving up
+DEGENERATE_OUTPUT_PATIENCE = 5 # Number of consecutive degenerate outputs to tolerate before giving up
 
 def codegen(
     target_path: str,
