@@ -4,21 +4,32 @@
 """
 
 import ast
+import signal
 import traceback
 
 from termcolor import colored
 
+from evalplus.config import SYNTAX_CHECK_TIMEOUT_SECONDS
 from evalplus.data import load_solutions
 
 
 def syntax_check(code, verbose=False):
+    def handler(signum, frame):
+        raise TimeoutError("Timeout")
+
+    signal.signal(signal.SIGALRM, handler)
+    signal.alarm(SYNTAX_CHECK_TIMEOUT_SECONDS)
     try:
         ast.parse(code)
         return True
-    except (SyntaxError, MemoryError):
+    except (SyntaxError, MemoryError, TimeoutError) as e:
+        if isinstance(e, TimeoutError):
+            print(colored("⚠️ Syntax check timed out!", "red"))
         if verbose:
             traceback.print_exc()
         return False
+    finally:
+        signal.alarm(0)
 
 
 def script(

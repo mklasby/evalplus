@@ -22,7 +22,8 @@ def make_request(
         temperature = 1.0  # o1 models do not support temperature
 
     if not enable_thinking:
-        message = message + " /no_think"
+        # message = message + " /no_think"
+        kwargs["extra_body"] = {"chat_template_kwargs": {"enable_thinking": False}}
     return client.chat.completions.create(
         model=model,
         messages=[

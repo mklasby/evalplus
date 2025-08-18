@@ -79,6 +79,7 @@ def codegen(
                 if outputs[0].strip() == "" or re.search(r"(.+?)\1{100,}", outputs[0], re.DOTALL) is not None:
                     degenerate_output_patience -= 1
                     print("WARNING: Degenerate output received from model! Remaining patience:", degenerate_output_patience)
+                    # outputs[0]="DEGENERATE_OUTPUT!"
                     if degenerate_output_patience == 0:
                         import pathlib
                         empty_outputs_file = pathlib.Path(target_path).parent / "degenerate_outputs.txt"
