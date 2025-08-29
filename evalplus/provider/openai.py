@@ -9,7 +9,9 @@ from evalplus.provider.utility import concurrent_call
 
 
 class OpenAIChatDecoder(DecoderBase):
-    def __init__(self, name: str, base_url=None, enable_thinking: bool = False, **kwargs) -> None:
+    def __init__(
+        self, name: str, base_url=None, enable_thinking: bool = False, **kwargs
+    ) -> None:
         super().__init__(name, **kwargs)
         self.base_url = base_url
         self.enable_thinking = enable_thinking
@@ -60,3 +62,39 @@ class OpenAIChatDecoder(DecoderBase):
 
     def is_direct_completion(self) -> bool:
         return False
+
+    async def async_codegen(
+        self, prompt: str, do_sample: bool = True, num_samples: int = 200
+    ) -> List[str]:
+        if do_sample:
+            assert self.temperature > 0, "Temperature must be positive for sampling"
+        batch_size = min(self.batch_size, num_samples)
+        prompt = self.instruction_prefix + f"\n```python\n{prompt.strip()}\n```"
+
+        return await self._async_codegen_api_batch(prompt, batch_size)
+
+    async def _async_codegen_api_batch(self, prompt: str, batch_size: int) -> List[str]:
+        client = openai.AsyncOpenAI(
+            api_key=os.getenv("OPENAI_API_KEY", "none"),
+            base_url=self.base_url,
+            timeout=1200,
+        )
+        if self.enable_thinking:
+            kwargs = {"enable_thinking": self.enable_thinking}
+        else:
+            kwargs = {}
+
+        ret = await openai_request.async_make_auto_request(
+            client,
+            message=prompt,
+            model=self.name,
+            max_tokens=self.max_new_tokens,
+            temperature=self.temperature,
+            n=batch_size,
+            **kwargs,
+        )
+
+        outputs = []
+        for item in ret.choices:
+            outputs.append(item.message.content)
+        return outputs
