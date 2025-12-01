@@ -62,6 +62,7 @@ def make_model(
             trust_remote_code=trust_remote_code,
             dtype=dtype,
             gguf_file=gguf_file,
+            enable_thinking=enable_thinking,
         )
     elif backend == "openai":
         from evalplus.provider.openai import OpenAIChatDecoder

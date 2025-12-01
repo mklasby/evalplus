@@ -19,6 +19,7 @@ class HuggingFaceDecoder(DecoderBase):
         attn_implementation: str = "eager",
         device_map: str = None,
         gguf_file: str = None,
+        enable_thinking: bool = False,
         **kwargs,
     ):
         super().__init__(name=name, **kwargs)
@@ -39,7 +40,7 @@ class HuggingFaceDecoder(DecoderBase):
         self.force_base_prompt = force_base_prompt
 
         # gguf format embeds tokenizer and is not compatible with hf tokenizer `use_fast` param
-        tokenizer_kwargs = {}
+        tokenizer_kwargs = {"enable_thinking": enable_thinking}
         if gguf_file is not None:
             tokenizer_kwargs["gguf_file"] = gguf_file
         self.tokenizer = AutoTokenizer.from_pretrained(name, **tokenizer_kwargs)
@@ -50,7 +51,7 @@ class HuggingFaceDecoder(DecoderBase):
 
         print(f"{self.eos = }")
         self.model = AutoModelForCausalLM.from_pretrained(name, **kwargs)
-        self.model = self.model.to(self.device)
+        # self.model = self.model.to(self.device)
 
     def is_direct_completion(self) -> bool:
         return self.force_base_prompt or self.tokenizer.chat_template is None
